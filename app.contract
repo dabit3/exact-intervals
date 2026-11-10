@@ -2,7 +2,7 @@
 // ring shows the current phase, and a finished workout is logged to a file by app.ts.
 // The countdown is computed from a start mark and `performanceNow()`, never by counting
 // ticks, so a test's `clock +240000` runs a whole Tabata deterministically in milliseconds.
-use RowText, RoundButton, EmptyState from "exact:content"
+use RowText, RoundButton from "exact:content"
 
 routes nav
   home "/"
@@ -47,14 +47,14 @@ component App
   mutation logged as shape Reply queue refreshes history
 
   derive presets = [Preset(id="tabata", name="Tabata", work=20, rest=10, rounds=8), Preset(id="sprint", name="Sprints", work=30, rest=30, rounds=10), Preset(id="endurance", name="Endurance", work=45, rest=15, rounds=6)]
-  state preset = "tabata"
-  state name = "Tabata"
-  state work = 20
-  state rest = 10
-  state rounds = 8
-  state workText = "20"
-  state restText = "10"
-  state roundsText = "8"
+  state preset = "tabata" persist
+  state name = "Tabata" persist
+  state work = 20 persist
+  state rest = 10 persist
+  state rounds = 8 persist
+  state workText = "20" persist
+  state restText = "10" persist
+  state roundsText = "8" persist
 
   // "idle", "running", "paused" or "done".
   state status = "idle"
@@ -177,14 +177,14 @@ component App
                     column position="absolute" inset=0 align-items="center" justify-content="center" gap=4
                       text mmss(phaseLeft) font-size="4rem" font-weight=600 font-variant-numeric="tabular-nums"
                         white-space="nowrap" -exact-fit="shrink" aria-hidden=true testId="left"
-                      text phase.toUpperCase() font="-exact-headline" letter-spacing="0.08em" color=tint aria-hidden=true testId="phase"
+                      text phase.toUpperCase() font="-exact-headline" letter-spacing="0.08em" color="-exact-secondary-label" aria-hidden=true testId="phase"
                   text (status == "idle" ? `${plural(rounds, "round")}` : `Round ${round} of ${rounds}`) font="-exact-title3"
                     font-variant-numeric="tabular-nums" testId="round"
                   text (status == "done" ? "Workout complete" : status == "idle" ? `${mmss(total)} total` : `${mmss(total - elapsed)} to go`)
                     color="-exact-secondary-label" font-variant-numeric="tabular-nums" testId="remaining"
                   row justify-content="space-between" width="100%" max-width=280
                     RoundButton(label="Reset", tint=none, press=reset, disabled=(status == "idle"), testId="reset")
-                    RoundButton(label=(status == "running" ? "Pause" : status == "paused" ? "Resume" : status == "done" ? "Again" : "Start"), tint=some(status == "running" ? "-exact-system-orange" : "-exact-system-green"), press=toggle, disabled=false, testId="start")
+                    RoundButton(label=(status == "running" ? "Pause" : status == "paused" ? "Resume" : status == "done" ? "Again" : "Start"), tint=some(status == "running" ? "-exact-system-red" : "AccentColor"), press=toggle, disabled=false, testId="start")
 
                 column flex="1 1 320px" min-width=0 gap=20
                   // The workout: a preset, or its three numbers set by hand.
@@ -199,21 +199,21 @@ component App
                         if preset == p.id
                           image "symbol:checkmark" aria-label="Selected"
                     hr
-                    row align-items="center" gap=12 padding="4px 0"
-                      text "Work (s)" flex=1
-                      input type="number" min=1 max=600 value=workText input=editWork disabled=(not editable) aria-label="Work seconds" testId="work" width="7rem" text-align="end"
-                    row align-items="center" gap=12 padding="4px 0"
-                      text "Rest (s)" flex=1
-                      input type="number" min=1 max=600 value=restText input=editRest disabled=(not editable) aria-label="Rest seconds" testId="rest" width="7rem" text-align="end"
-                    row align-items="center" gap=12 padding="4px 0"
-                      text "Rounds" flex=1
-                      input type="number" min=1 max=99 value=roundsText input=editRounds disabled=(not editable) aria-label="Rounds" testId="rounds" width="7rem" text-align="end"
+                    row align-items="center" flex-wrap="wrap" gap=12 padding="4px 0"
+                      text "Work (s)" flex="1 1 6rem"
+                      input type="number" min=1 max=600 value=workText input=editWork disabled=(not editable) aria-label="Work seconds" testId="work" width="7rem" max-width="100%" text-align="end"
+                    row align-items="center" flex-wrap="wrap" gap=12 padding="4px 0"
+                      text "Rest (s)" flex="1 1 6rem"
+                      input type="number" min=1 max=600 value=restText input=editRest disabled=(not editable) aria-label="Rest seconds" testId="rest" width="7rem" max-width="100%" text-align="end"
+                    row align-items="center" flex-wrap="wrap" gap=12 padding="4px 0"
+                      text "Rounds" flex="1 1 6rem"
+                      input type="number" min=1 max=99 value=roundsText input=editRounds disabled=(not editable) aria-label="Rounds" testId="rounds" width="7rem" max-width="100%" text-align="end"
 
                   // Finished workouts, newest first, kept in a file across launches.
                   column gap=4 padding="16px 20px" border-radius=16 background-color="-exact-secondary-background" testId="history"
                     text "History" role="heading" aria-level=2 font="-exact-headline"
                     if history.count == 0
-                      EmptyState(symbol="symbol:activity", title="No workouts yet", message="Finish one and it shows here.")
+                      text "No workouts yet. Finish one and it shows here." color="-exact-secondary-label" testId="history-empty"
                     else
                       text `${plural(history.count, "workout")} · ${mmss(history.seconds * 1000)} total` color="-exact-secondary-label"
                         font-variant-numeric="tabular-nums" testId="history-summary"
