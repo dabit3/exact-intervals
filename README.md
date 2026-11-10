@@ -6,6 +6,10 @@ An interval-workout timer built with [Exact](https://github.com/expo/exact), Exp
 | --- | --- |
 | ![Intervals mid-workout, light](docs/wide.png) | ![Intervals mid-workout, dark](docs/wide-dark.png) |
 
+The same contract on the native Linux host (Rust, no browser), driven by the same agent script:
+
+![Intervals on the native Linux host](docs/linux.png)
+
 ## What it shows off
 
 Timers are the classic thing UI tests can't test well: you either wait in real time or mock the clock and hope the mock matches the platform. Exact's agent owns the app's clock instead, so the same script runs a full workout deterministically, in about a second, on every host:
@@ -47,4 +51,4 @@ Drive it yourself the way the tests do, and look at the result:
 bun exact.mjs agent web --storage demo "tap start" "clock +12000" "screenshot work.png" tree
 ```
 
-On Linux without Playwright's Chromium, point `CHROME` at any Chrome binary.
+On Linux without Playwright's Chromium, point `CHROME` at any Chrome binary. Exact's prebuilt Hermes needs glibc 2.36 or newer, so on Ubuntu 22.04 build the Linux host in a newer distro (e.g. a `debian:trixie` container).
