@@ -1,0 +1,77 @@
+// Every test drives the app the way an agent does: tap, type, read the tree. `clock` is the
+// agent-owned virtual clock, so a four-minute Tabata runs in milliseconds, identically on
+// every host.
+
+test "a fresh app is a Tabata, ready to start"
+  clock data
+  expect text "workout-name" == "Tabata"
+  expect text "left" == "0:20"
+  expect text "phase" == "READY"
+  expect text "round" == "8 rounds"
+  expect text "remaining" == "3:50 total"
+
+test "work counts down, then rest begins"
+  clock data
+  tap "start"
+  expect text "start" == "Pause"
+  clock +5000
+  expect text "left" == "0:15"
+  expect text "phase" == "WORK"
+  expect text "round" == "Round 1 of 8"
+  clock +16000
+  expect text "phase" == "REST"
+  expect text "left" == "0:09"
+  clock +10000
+  expect text "phase" == "WORK"
+  expect text "round" == "Round 2 of 8"
+
+test "pausing stops the clock and resuming picks up where it left off"
+  clock data
+  tap "start"
+  clock +7000
+  tap "start"
+  expect text "phase" == "PAUSED"
+  expect text "start" == "Resume"
+  clock +60000
+  expect text "left" == "0:13"
+  tap "start"
+  clock +3000
+  expect text "left" == "0:10"
+  expect text "phase" == "WORK"
+
+test "a whole Tabata finishes and is logged to history"
+  clock data
+  tap "start"
+  clock +230000
+  clock data
+  expect text "phase" == "DONE"
+  expect text "remaining" == "Workout complete"
+  expect text "start" == "Again"
+  expect text "history-summary" == "1 workout · 3:50 total"
+  reload
+  clock data
+  expect text "history-summary" == "1 workout · 3:50 total"
+
+test "a custom workout is three numbers"
+  clock data
+  type "work" "40"
+  type "rest" "20"
+  type "rounds" "3"
+  expect text "workout-name" == "Custom"
+  expect text "left" == "0:40"
+  expect text "remaining" == "2:40 total"
+  tap "start"
+  clock +41000
+  expect text "phase" == "REST"
+  expect text "round" == "Round 1 of 3"
+
+test "reset returns to the start of the workout"
+  clock data
+  tap "preset-sprint"
+  expect text "remaining" == "9:30 total"
+  tap "start"
+  clock +65000
+  expect text "round" == "Round 2 of 10"
+  tap "reset"
+  expect text "phase" == "READY"
+  expect text "left" == "0:30"

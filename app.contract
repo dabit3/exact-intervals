@@ -1,0 +1,221 @@
+// Intervals: an interval-workout timer. Work and rest alternate for a number of rounds; the
+// ring shows the current phase, and a finished workout is logged to a file by app.ts.
+// The countdown is computed from a start mark and `performanceNow()`, never by counting
+// ticks, so a test's `clock +240000` runs a whole Tabata deterministically in milliseconds.
+use RowText, RoundButton, EmptyState from "exact:content"
+
+routes nav
+  home "/"
+
+shape Time
+  epochAtZero: number
+  utcOffset: number
+
+shape Session
+  id: string
+  name: string
+  rounds: number
+  work: number
+  rest: number
+  seconds: number
+  at: number
+
+shape History
+  count: number
+  seconds: number
+  sessions: Session[]
+
+shape Reply
+  ok: bool
+  error: string
+
+shape Preset
+  id: string
+  name: string
+  work: number
+  rest: number
+  rounds: number
+
+fn pad2(n: number): string = n < 10 ? `0${n}` : `${n}`
+fn mmss(ms: number): string = `${floor(ceil(ms / 1000) / 60)}:${pad2(ceil(ms / 1000) % 60)}`
+fn seconds(s: string, fallback: number): number = match parseNumber(s) { case some(n) => n >= 1 ? round(n) : fallback, case none => fallback }
+fn plural(n: number, word: string): string = `${n} ${word}${n == 1 ? "" : "s"}`
+
+component App
+  resource time = exactTime() as shape Time
+  resource history = loadHistory() as shape History else empty()
+  mutation logged as shape Reply queue refreshes history
+
+  derive presets = [Preset(id="tabata", name="Tabata", work=20, rest=10, rounds=8), Preset(id="sprint", name="Sprints", work=30, rest=30, rounds=10), Preset(id="endurance", name="Endurance", work=45, rest=15, rounds=6)]
+  state preset = "tabata"
+  state name = "Tabata"
+  state work = 20
+  state rest = 10
+  state rounds = 8
+  state workText = "20"
+  state restText = "10"
+  state roundsText = "8"
+
+  // "idle", "running", "paused" or "done".
+  state status = "idle"
+  state startedAt = 0
+  state banked = 0
+  state now = 0
+  state segment = 0
+
+  derive cycle = (work + rest) * 1000
+  derive total = rounds * cycle - rest * 1000
+  derive elapsed = min(total, banked + (status == "running" ? max(0, now - startedAt) : 0))
+  derive index = floor(elapsed / cycle)
+  derive within = elapsed - index * cycle
+  derive inWork = within < work * 1000
+  derive round = min(rounds, index + 1)
+  derive phase = status == "done" ? "Done" : status == "idle" ? "Ready" : status == "paused" ? "Paused" : inWork ? "Work" : "Rest"
+  derive phaseLength = inWork ? work * 1000 : rest * 1000
+  derive phaseLeft = status == "done" ? 0 : status == "idle" ? work * 1000 : inWork ? work * 1000 - within : cycle - within
+  derive fraction = status == "done" ? 1 : status == "idle" ? 0 : 1 - phaseLeft / phaseLength
+  derive tint = status == "done" ? "AccentColor" : status == "idle" ? "-exact-tertiary-label" : inWork ? "-exact-system-green" : "-exact-system-orange"
+  derive editable = status == "idle" or status == "done"
+  derive shown = time.epochAtZero + now
+
+  task tick when status == "running"
+    every(100, step)
+
+  // A phase change is felt (a haptic on iPhone); the workout's end logs it once.
+  action step
+    let t = performanceNow()
+    let e = banked + t - startedAt
+    let n = floor(e / cycle)
+    let seg = n * 2 + (e - n * cycle < work * 1000 ? 0 : 1)
+    now = t
+    if e >= total
+      status = "done"
+      banked = total
+      haptic("success")
+      send logged = logSession(name, rounds, work, rest, total / 1000, time.epochAtZero + t)
+    else if seg != segment
+      segment = seg
+      haptic("impact-heavy")
+
+  action toggle
+    let t = performanceNow()
+    now = t
+    if status == "running"
+      banked = banked + t - startedAt
+      status = "paused"
+    else if status == "done"
+      banked = 0
+      segment = 0
+      startedAt = t
+      status = "running"
+    else
+      startedAt = t
+      status = "running"
+
+  action reset
+    status = "idle"
+    banked = 0
+    segment = 0
+
+  action choose(id: string, label: string, w: number, r: number, n: number)
+    preset = id
+    name = label
+    work = w
+    rest = r
+    rounds = n
+    workText = `${w}`
+    restText = `${r}`
+    roundsText = `${n}`
+    status = "idle"
+    banked = 0
+    segment = 0
+
+  action editWork(v: string)
+    workText = v
+    work = seconds(v, work)
+    preset = "custom"
+    name = "Custom"
+    status = "idle"
+    banked = 0
+  action editRest(v: string)
+    restText = v
+    rest = seconds(v, rest)
+    preset = "custom"
+    name = "Custom"
+    status = "idle"
+    banked = 0
+  action editRounds(v: string)
+    roundsText = v
+    rounds = seconds(v, rounds)
+    preset = "custom"
+    name = "Custom"
+    status = "idle"
+    banked = 0
+
+  action follow(url: string)
+    nav = go(nav, url)
+
+  view
+    main testId="root" navigationKey=`${top(nav).id}` navigate=follow width="100%" height="100%"
+      for e in stack(nav) key=e.id
+        if e.name == "home"
+          column navigationKey=`${e.id}` navigationScroll="content" position="absolute" inset=0
+            header display="flex" align-items="center" padding="8px 16px"
+              text "Intervals" role="heading" aria-level=1 flex=1
+            scroll id="content" flex=1 min-height=0
+              row flex-wrap="wrap" align-items="flex-start" gap=20 padding=16 max-width="60rem" margin-left="auto" margin-right="auto"
+                // The focal point: the ring, the phase's countdown, and the two controls.
+                column flex="1 1 320px" min-width=0 align-items="center" gap=16 padding=24 border-radius=24
+                  background-color="-exact-secondary-background" testId="timer"
+                  text name font="-exact-headline" color="-exact-secondary-label" testId="workout-name"
+                  column role="timer" aria-label=`${phase}, ${mmss(phaseLeft)}` position="relative" width="100%" max-width=280 aspect-ratio=1
+                    svg viewBox="0 0 100 100" position="absolute" inset=0 width="100%" height="100%" aria-hidden=true color=tint
+                      circle cx=50 cy=50 r=44 fill="none" stroke="-exact-tertiary-fill" stroke-width=7
+                      if fraction > 0
+                        circle cx=50 cy=50 r=44 fill="none" stroke="currentcolor" stroke-width=7 stroke-linecap="round"
+                          pathLength=100 stroke-dasharray=`${min(1, fraction) * 100} 100` transform="rotate(-90 50 50)"
+                    column position="absolute" inset=0 align-items="center" justify-content="center" gap=4
+                      text mmss(phaseLeft) font-size="4rem" font-weight=600 font-variant-numeric="tabular-nums"
+                        white-space="nowrap" -exact-fit="shrink" aria-hidden=true testId="left"
+                      text phase.toUpperCase() font="-exact-headline" letter-spacing="0.08em" color=tint aria-hidden=true testId="phase"
+                  text (status == "idle" ? `${plural(rounds, "round")}` : `Round ${round} of ${rounds}`) font="-exact-title3"
+                    font-variant-numeric="tabular-nums" testId="round"
+                  text (status == "done" ? "Workout complete" : status == "idle" ? `${mmss(total)} total` : `${mmss(total - elapsed)} to go`)
+                    color="-exact-secondary-label" font-variant-numeric="tabular-nums" testId="remaining"
+                  row justify-content="space-between" width="100%" max-width=280
+                    RoundButton(label="Reset", tint=none, press=reset, disabled=(status == "idle"), testId="reset")
+                    RoundButton(label=(status == "running" ? "Pause" : status == "paused" ? "Resume" : status == "done" ? "Again" : "Start"), tint=some(status == "running" ? "-exact-system-orange" : "-exact-system-green"), press=toggle, disabled=false, testId="start")
+
+                column flex="1 1 320px" min-width=0 gap=20
+                  // The workout: a preset, or its three numbers set by hand.
+                  column gap=4 padding="16px 20px" border-radius=16 background-color="-exact-secondary-background" testId="workouts"
+                    text "Workout" role="heading" aria-level=2 font="-exact-headline" margin-bottom=4
+                    for p in presets key=p.id
+                      button press=choose(p.id, p.name, p.work, p.rest, p.rounds) disabled=(not editable) testId=`preset-${p.id}`
+                        display="flex" align-items="center" gap=12 padding="8px 0"
+                        column flex=1 min-width=0 align-items="flex-start"
+                          text p.name color="-exact-label"
+                          text `${p.work}s work · ${p.rest}s rest · ${plural(p.rounds, "round")}` font="-exact-footnote" color="-exact-secondary-label"
+                        if preset == p.id
+                          image "symbol:checkmark" aria-label="Selected"
+                    hr
+                    row align-items="center" gap=12 padding="4px 0"
+                      text "Work (s)" flex=1
+                      input type="number" min=1 max=600 value=workText input=editWork disabled=(not editable) aria-label="Work seconds" testId="work" width="7rem" text-align="end"
+                    row align-items="center" gap=12 padding="4px 0"
+                      text "Rest (s)" flex=1
+                      input type="number" min=1 max=600 value=restText input=editRest disabled=(not editable) aria-label="Rest seconds" testId="rest" width="7rem" text-align="end"
+                    row align-items="center" gap=12 padding="4px 0"
+                      text "Rounds" flex=1
+                      input type="number" min=1 max=99 value=roundsText input=editRounds disabled=(not editable) aria-label="Rounds" testId="rounds" width="7rem" text-align="end"
+
+                  // Finished workouts, newest first, kept in a file across launches.
+                  column gap=4 padding="16px 20px" border-radius=16 background-color="-exact-secondary-background" testId="history"
+                    text "History" role="heading" aria-level=2 font="-exact-headline"
+                    if history.count == 0
+                      EmptyState(symbol="symbol:activity", title="No workouts yet", message="Finish one and it shows here.")
+                    else
+                      text `${plural(history.count, "workout")} · ${mmss(history.seconds * 1000)} total` color="-exact-secondary-label"
+                        font-variant-numeric="tabular-nums" testId="history-summary"
+                      for s in history.sessions key=s.id
+                        RowText(title=s.name, detail=`${s.rounds} × ${s.work}s / ${s.rest}s · ${formatDay(s.at, shown, time.utcOffset, "day-time")}`, value=some(mmss(s.seconds * 1000)))
