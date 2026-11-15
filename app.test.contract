@@ -123,7 +123,7 @@ test "durations above their maximum cannot start"
   expect enabled "start"
   type "rest" "601"
   expect disabled "start"
-  expect text "rest-help" == "Enter rest seconds as a whole number from 1 to 600."
+  expect text "rest-help" == "Enter rest seconds as a whole number from 0 to 600."
   type "rest" "600"
   expect enabled "start"
 
@@ -135,13 +135,14 @@ test "rounds must stay within their maximum"
   type "rounds" "99"
   expect enabled "start"
 
-test "settings require positive whole numbers"
+test "settings require whole numbers and allow zero rest"
   clock data
   type "work" "1.5"
   expect disabled "start"
   type "work" "1"
   type "rest" "0"
-  expect disabled "start"
+  expect enabled "start"
+  expect text "rest-help" == "0–600 whole seconds"
   type "rest" "1.5"
   expect disabled "start"
   type "rest" "1"
@@ -169,7 +170,7 @@ test "custom values must stay within each field's bounds"
   type "rest" "601"
   expect disabled "start"
   type "rest" "0"
-  expect disabled "start"
+  expect enabled "start"
   type "rest" "600"
   expect enabled "start"
   type "rounds" "100"
@@ -263,3 +264,136 @@ test "a workout finishing while suspended is logged once on relaunch"
   clock data
   expect text "phase" == "DONE"
   expect text "history-summary" == "1 workout · 3:50 total"
+
+test "fractional settings are invalid until corrected"
+  clock data
+  type "work" "1.5"
+  expect disabled "start"
+  expect text "remaining" == "Use whole seconds: work 1–600, rest 0–600; rounds 1–99"
+  type "work" "7"
+  type "rest" "1.5"
+  expect disabled "start"
+  type "rest" "13"
+  type "rounds" "1.5"
+  expect disabled "start"
+  type "rounds" "3"
+  expect enabled "start"
+  expect text "remaining" == "0:47 total"
+
+test "settings enforce their upper and lower bounds"
+  clock data
+  type "work" "601"
+  expect disabled "start"
+  type "work" "600"
+  type "rest" "601"
+  expect disabled "start"
+  type "rest" "600"
+  type "rounds" "100"
+  expect disabled "start"
+  type "rounds" "99"
+  expect enabled "start"
+  expect text "remaining" == "32:50:00 total"
+  type "work" "0"
+  expect disabled "start"
+  type "work" "1"
+  type "rest" "-1"
+  expect disabled "start"
+  type "rest" "0"
+  type "rounds" "0"
+  expect disabled "start"
+  type "rounds" "1"
+  expect enabled "start"
+  expect text "remaining" == "0:01 total"
+
+test "no-rest rounds run back to back and log exactly their work"
+  clock data
+  type "work" "7"
+  type "rest" "0"
+  type "rounds" "3"
+  expect text "remaining" == "0:21 total"
+  tap "start"
+  clock +5000
+  expect text "phase" == "WORK"
+  expect sound has "assets/cue.wav" at 5000
+  clock +7000
+  expect text "phase" == "WORK"
+  expect text "round" == "Round 2 of 3"
+  expect text "left" == "0:07"
+  expect state inWork == true
+  expect state phaseLength == 7000
+  expect state fraction == 0
+  expect sound missing "assets/cue.wav" at 12000
+  clock +7000
+  expect text "phase" == "WORK"
+  expect text "round" == "Round 3 of 3"
+  expect sound missing "assets/cue.wav" at 19000
+  clock +7000
+  clock data
+  expect text "phase" == "DONE"
+  expect text "history-summary" == "1 workout · 0:21 total"
+  expect state history.sessions.0.seconds == 21
+  expect state history.sessions.0.rest == 0
+  reload
+  clock data
+  expect text "history-summary" == "1 workout · 0:21 total"
+
+test "persisted input text determines the executed workout"
+  clock data
+  type "work" "7"
+  type "rest" "0"
+  type "rounds" "3"
+  reload
+  clock data
+  expect state work == 7
+  expect state rest == 0
+  expect state rounds == 3
+  expect text "remaining" == "0:21 total"
+  tap "start"
+  clock +26000
+  clock data
+  expect text "history-summary" == "1 workout · 0:21 total"
+  expect state history.sessions.0.work == 7
+  expect state history.sessions.0.rest == 0
+  expect state history.sessions.0.rounds == 3
+
+test "a no-rest workout restores running and paused rounds and logs once"
+  clock data
+  type "work" "7"
+  type "rest" "0"
+  type "rounds" "3"
+  tap "start"
+  clock +12000
+  reload
+  expect text "phase" == "WORK"
+  expect text "round" == "Round 2 of 3"
+  expect text "left" == "0:07"
+  expect state rest == 0
+  expect state phaseLength == 7000
+  tap "start"
+  reload
+  expect text "phase" == "PAUSED · WORK"
+  clock +60000
+  expect text "left" == "0:07"
+  tap "start"
+  clock +14000
+  clock data
+  expect text "phase" == "DONE"
+  expect text "history-summary" == "1 workout · 0:21 total"
+  reload
+  clock data
+  expect text "history-summary" == "1 workout · 0:21 total"
+
+test "hour-long workouts format totals and history as hours"
+  clock data
+  type "work" "600"
+  type "rest" "0"
+  type "rounds" "6"
+  expect text "remaining" == "1:00:00 total"
+  tap "start"
+  clock +3605000
+  clock data
+  expect text "history-summary" == "1 workout · 1:00:00 total"
+  expect state history.sessions.0.seconds == 3600
+  reload
+  clock data
+  expect text "history-summary" == "1 workout · 1:00:00 total"
