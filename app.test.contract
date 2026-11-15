@@ -9,11 +9,34 @@ test "a fresh app is a Tabata, ready to start"
   expect text "phase" == "READY"
   expect text "round" == "8 rounds"
   expect text "remaining" == "3:50 total"
+  expect text "explanation" == "20 seconds all-out, 10 seconds rest, 8 times. Pick one move — squats, burpees, high knees — and go hard during WORK."
+
+test "get ready counts down before work and resumes without restarting"
+  clock data
+  tap "start"
+  expect text "phase" == "GET READY"
+  expect text "left" == "0:05"
+  expect text "round" == "Round 1 of 8"
+  expect text "remaining" == "3:50 to go"
+  expect sound missing "assets/cue.wav" at 0
+  clock +4000
+  expect text "left" == "0:01"
+  tap "start"
+  expect text "phase" == "PAUSED · GET READY"
+  clock +60000
+  expect text "left" == "0:01"
+  tap "start"
+  clock +1000
+  expect text "phase" == "WORK"
+  expect text "left" == "0:20"
+  expect sound has "assets/cue.wav" at 65000
 
 test "work counts down, then rest begins"
   clock data
   tap "start"
   expect text "start" == "Pause"
+  clock +5000
+  expect sound has "assets/cue.wav" at 5000
   clock +5000
   expect text "left" == "0:15"
   expect text "phase" == "WORK"
@@ -21,16 +44,18 @@ test "work counts down, then rest begins"
   clock +16000
   expect text "phase" == "REST"
   expect text "left" == "0:09"
+  expect sound has "assets/cue.wav" at 25000
   clock +10000
   expect text "phase" == "WORK"
   expect text "round" == "Round 2 of 8"
+  expect sound has "assets/cue.wav" at 35000
 
 test "pausing stops the clock and resuming picks up where it left off"
   clock data
   tap "start"
-  clock +7000
+  clock +12000
   tap "start"
-  expect text "phase" == "PAUSED"
+  expect text "phase" == "PAUSED · WORK"
   expect text "start" == "Resume"
   clock +60000
   expect text "left" == "0:13"
@@ -42,12 +67,19 @@ test "pausing stops the clock and resuming picks up where it left off"
 test "a whole Tabata finishes and is logged to history"
   clock data
   tap "start"
-  clock +230000
+  clock +235000
   clock data
   expect text "phase" == "DONE"
   expect text "remaining" == "Workout complete"
   expect text "start" == "Again"
+  expect sound has "assets/cue.wav" at 235000
   expect text "history-summary" == "1 workout · 3:50 total"
+  tap "start"
+  expect text "phase" == "GET READY"
+  expect text "left" == "0:05"
+  clock +5000
+  expect text "phase" == "WORK"
+  expect text "left" == "0:20"
   reload
   clock data
   expect text "history-summary" == "1 workout · 3:50 total"
@@ -61,9 +93,16 @@ test "a custom workout is three numbers"
   expect text "left" == "0:40"
   expect text "remaining" == "2:40 total"
   tap "start"
-  clock +41000
+  clock +46000
   expect text "phase" == "REST"
   expect text "round" == "Round 1 of 3"
+  tap "start"
+  expect text "phase" == "PAUSED · REST"
+  clock +20000
+  expect text "left" == "0:19"
+  tap "start"
+  clock +19000
+  expect text "phase" == "WORK"
 
 test "a blank field can't start a workout"
   clock data
@@ -114,7 +153,7 @@ test "settings require positive whole numbers"
   type "rounds" "1"
   expect enabled "start"
   tap "start"
-  clock +1000
+  clock +6000
   expect text "phase" == "DONE"
 
 test "reset returns to the start of the workout"
@@ -122,7 +161,7 @@ test "reset returns to the start of the workout"
   tap "preset-sprint"
   expect text "remaining" == "9:30 total"
   tap "start"
-  clock +65000
+  clock +70000
   expect text "round" == "Round 2 of 10"
   tap "reset"
   expect text "phase" == "READY"
