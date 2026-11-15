@@ -170,7 +170,7 @@ test "custom values must stay within each field's bounds"
   type "rest" "601"
   expect disabled "start"
   type "rest" "0"
-  expect disabled "start"
+  expect enabled "start"
   type "rest" "600"
   expect enabled "start"
   type "rounds" "100"
@@ -312,6 +312,9 @@ test "no-rest rounds run back to back and log exactly their work"
   type "rounds" "3"
   expect text "remaining" == "0:21 total"
   tap "start"
+  clock +5000
+  expect text "phase" == "WORK"
+  expect sound has "assets/cue.wav" at 5000
   clock +7000
   expect text "phase" == "WORK"
   expect text "round" == "Round 2 of 3"
@@ -319,9 +322,11 @@ test "no-rest rounds run back to back and log exactly their work"
   expect state inWork == true
   expect state phaseLength == 7000
   expect state fraction == 0
+  expect sound missing "assets/cue.wav" at 12000
   clock +7000
   expect text "phase" == "WORK"
   expect text "round" == "Round 3 of 3"
+  expect sound missing "assets/cue.wav" at 19000
   clock +7000
   clock data
   expect text "phase" == "DONE"
@@ -344,7 +349,7 @@ test "persisted input text determines the executed workout"
   expect state rounds == 3
   expect text "remaining" == "0:21 total"
   tap "start"
-  clock +21000
+  clock +26000
   clock data
   expect text "history-summary" == "1 workout · 0:21 total"
   expect state history.sessions.0.work == 7
@@ -358,7 +363,7 @@ test "hour-long workouts format totals and history as hours"
   type "rounds" "6"
   expect text "remaining" == "1:00:00 total"
   tap "start"
-  clock +3600000
+  clock +3605000
   clock data
   expect text "history-summary" == "1 workout · 1:00:00 total"
   expect state history.sessions.0.seconds == 3600
