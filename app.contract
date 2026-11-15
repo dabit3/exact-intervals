@@ -39,7 +39,7 @@ shape Preset
 
 fn pad2(n: number): string = n < 10 ? `0${n}` : `${n}`
 fn mmss(ms: number): string = `${floor(ceil(ms / 1000) / 60)}:${pad2(ceil(ms / 1000) % 60)}`
-fn seconds(s: string, fallback: number): number = match parseNumber(s) { case some(n) => n >= 1 ? round(n) : fallback, case none => fallback }
+fn seconds(s: string, fallback: number, upper: number): number = match parseNumber(s) { case some(n) => n >= 1 and n <= upper ? round(n) : fallback, case none => fallback }
 fn valid(s: string, limit: number): bool = match parseNumber(s) { case some(n) => n >= 1 and n <= limit and floor(n) == n, case none => false }
 fn plural(n: number, word: string): string = `${n} ${word}${n == 1 ? "" : "s"}`
 
@@ -147,21 +147,21 @@ component App
 
   action editWork(v: string)
     workText = v
-    work = seconds(v, work)
+    work = seconds(v, work, 600)
     preset = "custom"
     name = "Custom"
     status = "idle"
     banked = 0
   action editRest(v: string)
     restText = v
-    rest = seconds(v, rest)
+    rest = seconds(v, rest, 600)
     preset = "custom"
     name = "Custom"
     status = "idle"
     banked = 0
   action editRounds(v: string)
     roundsText = v
-    rounds = seconds(v, rounds)
+    rounds = seconds(v, rounds, 99)
     preset = "custom"
     name = "Custom"
     status = "idle"
