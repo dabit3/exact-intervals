@@ -41,9 +41,9 @@ shape Preset
   rounds: number
 
 fn pad2(n: number): string = n < 10 ? `0${n}` : `${n}`
-fn mmss(ms: number): string = `${floor(ceil(ms / 1000) / 60)}:${pad2(ceil(ms / 1000) % 60)}`
-fn seconds(s: string, fallback: number, upper: number): number = match parseNumber(s) { case some(n) => n >= 1 and n <= upper ? round(n) : fallback, case none => fallback }
-fn valid(s: string, limit: number): bool = match parseNumber(s) { case some(n) => n >= 1 and n <= limit and floor(n) == n, case none => false }
+fn mmss(ms: number): string = ceil(ms / 1000) >= 3600 ? `${floor(ceil(ms / 1000) / 3600)}:${pad2(floor(ceil(ms / 1000) / 60) % 60)}:${pad2(ceil(ms / 1000) % 60)}` : `${floor(ceil(ms / 1000) / 60)}:${pad2(ceil(ms / 1000) % 60)}`
+fn valid(s: string, low: number, high: number): bool = match parseNumber(s) { case some(n) => n >= low and n <= high and n == floor(n), case none => false }
+fn seconds(s: string, fallback: number, low: number, high: number): number = valid(s, low, high) ? match parseNumber(s) { case some(n) => n, case none => fallback } : fallback
 fn plural(n: number, word: string): string = `${n} ${word}${n == 1 ? "" : "s"}`
 
 component App
@@ -78,16 +78,16 @@ component App
   derive elapsed = status == "done" ? total : min(total, max(0, runningTime - 5000))
   derive index = floor(elapsed / cycle)
   derive within = elapsed - index * cycle
-  derive inWork = within < work * 1000
+  derive inWork = rest == 0 or within < work * 1000
   derive round = min(rounds, index + 1)
   derive activePhase = gettingReady ? "Get ready" : inWork ? "Work" : "Rest"
   derive phase = status == "done" ? "Done" : status == "idle" ? "Ready" : status == "paused" ? `Paused · ${activePhase}` : activePhase
   derive phaseLength = gettingReady ? 5000 : inWork ? work * 1000 : rest * 1000
   derive phaseLeft = status == "done" ? 0 : status == "idle" ? work * 1000 : gettingReady ? 5000 - runningTime : inWork ? work * 1000 - within : cycle - within
   derive fraction = status == "done" ? 1 : status == "idle" ? 0 : 1 - phaseLeft / phaseLength
-  derive workValid = valid(workText, 600)
-  derive restValid = valid(restText, 600)
-  derive roundsValid = valid(roundsText, 99)
+  derive workValid = valid(workText, 1, 600)
+  derive restValid = valid(restText, 0, 600)
+  derive roundsValid = valid(roundsText, 1, 99)
   derive ready = workValid and restValid and roundsValid
   derive tint = status == "done" ? "AccentColor" : status == "idle" or gettingReady ? "-exact-tertiary-label" : inWork ? "-exact-system-green" : "-exact-system-orange"
   derive explanation = preset == "tabata" ? "20 seconds all-out, 10 seconds rest, 8 times. Pick one move — squats, burpees, high knees — and go hard during WORK." : preset == "sprint" ? "30 seconds fast, 30 seconds rest, 10 times. Run or cycle hard during WORK, then recover during REST." : preset == "endurance" ? "45 seconds steady effort, 15 seconds rest, 6 times. Pick a move and keep a pace you can sustain." : "Choose your work, rest and rounds. Move during WORK and recover during REST; the last round ends after work."
@@ -122,8 +122,9 @@ component App
       send logged = logSession(sessionId, name, rounds, work, rest, total / 1000, startedAt + total + 5000 - banked)
     else if status == "running" and seg != segment
       segment = seg
-      haptic("impact-heavy")
-      playSound("assets/cue.wav")
+      if rest > 0 or seg == 0
+        haptic("impact-heavy")
+        playSound("assets/cue.wav")
 
   action toggle
     let t = time.epochAtZero + performanceNow()
@@ -168,21 +169,21 @@ component App
 
   action editWork(v: string)
     workText = v
-    work = seconds(v, work, 600)
+    work = seconds(v, work, 1, 600)
     preset = "custom"
     name = "Custom"
     status = "idle"
     banked = 0
   action editRest(v: string)
     restText = v
-    rest = seconds(v, rest, 600)
+    rest = seconds(v, rest, 0, 600)
     preset = "custom"
     name = "Custom"
     status = "idle"
     banked = 0
   action editRounds(v: string)
     roundsText = v
-    rounds = seconds(v, rounds, 99)
+    rounds = seconds(v, rounds, 1, 99)
     preset = "custom"
     name = "Custom"
     status = "idle"
@@ -216,7 +217,7 @@ component App
                       text phase.toUpperCase() font="-exact-headline" text-align="center" max-width="100%" color="-exact-secondary-label" aria-hidden=true testId="phase"
                   text (status == "idle" ? `${plural(rounds, "round")}` : `Round ${round} of ${rounds}`) font="-exact-title3"
                     font-variant-numeric="tabular-nums" testId="round"
-                  text (status == "done" ? "Workout complete" : status == "idle" ? `${mmss(total)} total` : `${mmss(total - elapsed)} to go`)
+                  text (not ready ? "Use whole seconds: work 1–600, rest 0–600; rounds 1–99" : status == "done" ? "Workout complete" : status == "idle" ? `${mmss(total)} total` : `${mmss(total - elapsed)} to go`)
                     color="-exact-secondary-label" font-variant-numeric="tabular-nums" testId="remaining"
                   if status == "idle"
                     text explanation font="-exact-footnote" color="-exact-secondary-label" text-align="center" width="100%" testId="explanation"
@@ -250,9 +251,9 @@ component App
                       id="work-help" testId="work-help" font="-exact-footnote" color="-exact-secondary-label" aria-live="polite"
                     row align-items="center" flex-wrap="wrap" gap=12 padding="4px 0"
                       text "Rest (s)" flex="1 1 6rem"
-                      input type="number" min=1 max=600 step=1 value=restText input=editRest disabled=(not editable) aria-label="Rest seconds" testId="rest" width="7rem" min-width=0 max-width="100%" text-align="end"
+                      input type="number" min=0 max=600 step=1 value=restText input=editRest disabled=(not editable) aria-label="Rest seconds" testId="rest" width="7rem" min-width=0 max-width="100%" text-align="end"
                         aria-invalid=(restValid ? "false" : "true") aria-describedby="rest-help"
-                    text (restValid ? "1–600 whole seconds" : "Enter rest seconds as a whole number from 1 to 600.")
+                    text (restValid ? "0–600 whole seconds" : "Enter rest seconds as a whole number from 0 to 600.")
                       id="rest-help" testId="rest-help" font="-exact-footnote" color="-exact-secondary-label" aria-live="polite"
                     row align-items="center" flex-wrap="wrap" gap=12 padding="4px 0"
                       text "Rounds" flex="1 1 6rem"
