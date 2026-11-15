@@ -211,19 +211,19 @@ component App
                     hr
                     row align-items="center" flex-wrap="wrap" gap=12 padding="4px 0"
                       text "Work (s)" flex="1 1 6rem"
-                      input type="number" min=1 max=600 step=1 value=workText input=editWork disabled=(not editable) aria-label="Work seconds" testId="work" width="7rem" max-width="100%" text-align="end"
+                      input type="number" min=1 max=600 step=1 value=workText input=editWork disabled=(not editable) aria-label="Work seconds" testId="work" width="7rem" min-width=0 max-width="100%" text-align="end"
                         aria-invalid=(workValid ? "false" : "true") aria-describedby="work-help"
                     text (workValid ? "1–600 whole seconds" : "Enter work seconds as a whole number from 1 to 600.")
                       id="work-help" testId="work-help" font="-exact-footnote" color="-exact-secondary-label" aria-live="polite"
                     row align-items="center" flex-wrap="wrap" gap=12 padding="4px 0"
                       text "Rest (s)" flex="1 1 6rem"
-                      input type="number" min=1 max=600 step=1 value=restText input=editRest disabled=(not editable) aria-label="Rest seconds" testId="rest" width="7rem" max-width="100%" text-align="end"
+                      input type="number" min=1 max=600 step=1 value=restText input=editRest disabled=(not editable) aria-label="Rest seconds" testId="rest" width="7rem" min-width=0 max-width="100%" text-align="end"
                         aria-invalid=(restValid ? "false" : "true") aria-describedby="rest-help"
                     text (restValid ? "1–600 whole seconds" : "Enter rest seconds as a whole number from 1 to 600.")
                       id="rest-help" testId="rest-help" font="-exact-footnote" color="-exact-secondary-label" aria-live="polite"
                     row align-items="center" flex-wrap="wrap" gap=12 padding="4px 0"
                       text "Rounds" flex="1 1 6rem"
-                      input type="number" min=1 max=99 step=1 value=roundsText input=editRounds disabled=(not editable) aria-label="Rounds" testId="rounds" width="7rem" max-width="100%" text-align="end"
+                      input type="number" min=1 max=99 step=1 value=roundsText input=editRounds disabled=(not editable) aria-label="Rounds" testId="rounds" width="7rem" min-width=0 max-width="100%" text-align="end"
                         aria-invalid=(roundsValid ? "false" : "true") aria-describedby="rounds-help"
                     text (roundsValid ? "1–99 whole rounds" : "Enter rounds as a whole number from 1 to 99.")
                       id="rounds-help" testId="rounds-help" font="-exact-footnote" color="-exact-secondary-label" aria-live="polite"
