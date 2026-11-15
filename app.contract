@@ -2,7 +2,7 @@
 // ring shows the current phase, and a finished workout is logged to a file by app.ts.
 // The countdown is computed from a start mark and `performanceNow()`, never by counting
 // ticks, so a test's `clock +240000` runs a whole Tabata deterministically in milliseconds.
-use RowText, RoundButton from "exact:content"
+use RowText from "exact:content"
 
 routes nav
   home "/"
@@ -39,7 +39,7 @@ shape Preset
 fn pad2(n: number): string = n < 10 ? `0${n}` : `${n}`
 fn mmss(ms: number): string = `${floor(ceil(ms / 1000) / 60)}:${pad2(ceil(ms / 1000) % 60)}`
 fn seconds(s: string, fallback: number): number = match parseNumber(s) { case some(n) => n >= 1 ? round(n) : fallback, case none => fallback }
-fn valid(s: string): bool = match parseNumber(s) { case some(n) => n >= 1, case none => false }
+fn valid(s: string, limit: number): bool = match parseNumber(s) { case some(n) => n >= 1 and n <= limit and floor(n) == n, case none => false }
 fn plural(n: number, word: string): string = `${n} ${word}${n == 1 ? "" : "s"}`
 
 component App
@@ -75,7 +75,10 @@ component App
   derive phaseLength = inWork ? work * 1000 : rest * 1000
   derive phaseLeft = status == "done" ? 0 : status == "idle" ? work * 1000 : inWork ? work * 1000 - within : cycle - within
   derive fraction = status == "done" ? 1 : status == "idle" ? 0 : 1 - phaseLeft / phaseLength
-  derive ready = valid(workText) and valid(restText) and valid(roundsText)
+  derive workValid = valid(workText, 600)
+  derive restValid = valid(restText, 600)
+  derive roundsValid = valid(roundsText, 99)
+  derive ready = workValid and restValid and roundsValid
   derive tint = status == "done" ? "AccentColor" : status == "idle" ? "-exact-tertiary-label" : inWork ? "-exact-system-green" : "-exact-system-orange"
   derive editable = status == "idle" or status == "done"
   derive shown = time.epochAtZero + now
@@ -184,9 +187,14 @@ component App
                     font-variant-numeric="tabular-nums" testId="round"
                   text (status == "done" ? "Workout complete" : status == "idle" ? `${mmss(total)} total` : `${mmss(total - elapsed)} to go`)
                     color="-exact-secondary-label" font-variant-numeric="tabular-nums" testId="remaining"
-                  row justify-content="space-between" width="100%" max-width=280
-                    RoundButton(label="Reset", tint=none, press=reset, disabled=(status == "idle"), testId="reset")
-                    RoundButton(label=(status == "running" ? "Pause" : status == "paused" ? "Resume" : status == "done" ? "Again" : "Start"), tint=some(status == "running" ? "-exact-system-red" : "AccentColor"), press=toggle, disabled=(not ready), testId="start")
+                  row justify-content="center" flex-wrap="wrap" gap=12 width="100%"
+                    button press=reset disabled=(status == "idle") testId="reset" buttonStyle="gray"
+                      -exact-corner-style="capsule" max-width="100%"
+                      text "Reset" font-size="1rem"
+                    button press=toggle disabled=(not ready) testId="start" buttonStyle="filled"
+                      accent-color=(status == "running" ? "-exact-system-red" : "inherit")
+                      -exact-corner-style="capsule" max-width="100%"
+                      text (status == "running" ? "Pause" : status == "paused" ? "Resume" : status == "done" ? "Again" : "Start") font-size="1rem"
 
                 column flex="1 1 320px" min-width=0 gap=20
                   // The workout: a preset, or its three numbers set by hand.
@@ -203,13 +211,22 @@ component App
                     hr
                     row align-items="center" flex-wrap="wrap" gap=12 padding="4px 0"
                       text "Work (s)" flex="1 1 6rem"
-                      input type="number" min=1 max=600 value=workText input=editWork disabled=(not editable) aria-label="Work seconds" testId="work" width="7rem" max-width="100%" text-align="end"
+                      input type="number" min=1 max=600 step=1 value=workText input=editWork disabled=(not editable) aria-label="Work seconds" testId="work" width="7rem" max-width="100%" text-align="end"
+                        aria-invalid=(workValid ? "false" : "true") aria-describedby="work-help"
+                    text (workValid ? "1–600 whole seconds" : "Enter work seconds as a whole number from 1 to 600.")
+                      id="work-help" testId="work-help" font="-exact-footnote" color="-exact-secondary-label" aria-live="polite"
                     row align-items="center" flex-wrap="wrap" gap=12 padding="4px 0"
                       text "Rest (s)" flex="1 1 6rem"
-                      input type="number" min=1 max=600 value=restText input=editRest disabled=(not editable) aria-label="Rest seconds" testId="rest" width="7rem" max-width="100%" text-align="end"
+                      input type="number" min=1 max=600 step=1 value=restText input=editRest disabled=(not editable) aria-label="Rest seconds" testId="rest" width="7rem" max-width="100%" text-align="end"
+                        aria-invalid=(restValid ? "false" : "true") aria-describedby="rest-help"
+                    text (restValid ? "1–600 whole seconds" : "Enter rest seconds as a whole number from 1 to 600.")
+                      id="rest-help" testId="rest-help" font="-exact-footnote" color="-exact-secondary-label" aria-live="polite"
                     row align-items="center" flex-wrap="wrap" gap=12 padding="4px 0"
                       text "Rounds" flex="1 1 6rem"
-                      input type="number" min=1 max=99 value=roundsText input=editRounds disabled=(not editable) aria-label="Rounds" testId="rounds" width="7rem" max-width="100%" text-align="end"
+                      input type="number" min=1 max=99 step=1 value=roundsText input=editRounds disabled=(not editable) aria-label="Rounds" testId="rounds" width="7rem" max-width="100%" text-align="end"
+                        aria-invalid=(roundsValid ? "false" : "true") aria-describedby="rounds-help"
+                    text (roundsValid ? "1–99 whole rounds" : "Enter rounds as a whole number from 1 to 99.")
+                      id="rounds-help" testId="rounds-help" font="-exact-footnote" color="-exact-secondary-label" aria-live="polite"
 
                   // Finished workouts, newest first, kept in a file across launches.
                   column gap=4 padding="16px 20px" border-radius=16 background-color="-exact-secondary-background" testId="history"
