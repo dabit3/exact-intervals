@@ -39,6 +39,7 @@ shape Preset
 fn pad2(n: number): string = n < 10 ? `0${n}` : `${n}`
 fn mmss(ms: number): string = `${floor(ceil(ms / 1000) / 60)}:${pad2(ceil(ms / 1000) % 60)}`
 fn seconds(s: string, fallback: number): number = match parseNumber(s) { case some(n) => n >= 1 ? round(n) : fallback, case none => fallback }
+fn valid(s: string): bool = match parseNumber(s) { case some(n) => n >= 1, case none => false }
 fn plural(n: number, word: string): string = `${n} ${word}${n == 1 ? "" : "s"}`
 
 component App
@@ -74,6 +75,7 @@ component App
   derive phaseLength = inWork ? work * 1000 : rest * 1000
   derive phaseLeft = status == "done" ? 0 : status == "idle" ? work * 1000 : inWork ? work * 1000 - within : cycle - within
   derive fraction = status == "done" ? 1 : status == "idle" ? 0 : 1 - phaseLeft / phaseLength
+  derive ready = valid(workText) and valid(restText) and valid(roundsText)
   derive tint = status == "done" ? "AccentColor" : status == "idle" ? "-exact-tertiary-label" : inWork ? "-exact-system-green" : "-exact-system-orange"
   derive editable = status == "idle" or status == "done"
   derive shown = time.epochAtZero + now
@@ -108,7 +110,7 @@ component App
       segment = 0
       startedAt = t
       status = "running"
-    else
+    else if ready
       startedAt = t
       status = "running"
 
@@ -184,7 +186,7 @@ component App
                     color="-exact-secondary-label" font-variant-numeric="tabular-nums" testId="remaining"
                   row justify-content="space-between" width="100%" max-width=280
                     RoundButton(label="Reset", tint=none, press=reset, disabled=(status == "idle"), testId="reset")
-                    RoundButton(label=(status == "running" ? "Pause" : status == "paused" ? "Resume" : status == "done" ? "Again" : "Start"), tint=some(status == "running" ? "-exact-system-red" : "AccentColor"), press=toggle, disabled=false, testId="start")
+                    RoundButton(label=(status == "running" ? "Pause" : status == "paused" ? "Resume" : status == "done" ? "Again" : "Start"), tint=some(status == "running" ? "-exact-system-red" : "AccentColor"), press=toggle, disabled=(not ready), testId="start")
 
                 column flex="1 1 320px" min-width=0 gap=20
                   // The workout: a preset, or its three numbers set by hand.

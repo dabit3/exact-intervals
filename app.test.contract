@@ -65,6 +65,14 @@ test "a custom workout is three numbers"
   expect text "phase" == "REST"
   expect text "round" == "Round 1 of 3"
 
+test "a blank field can't start a workout"
+  clock data
+  type "work" ""
+  expect disabled "start"
+  expect text "phase" == "READY"
+  type "work" "15"
+  expect enabled "start"
+
 test "reset returns to the start of the workout"
   clock data
   tap "preset-sprint"
