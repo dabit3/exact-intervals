@@ -55,12 +55,12 @@ component App
   derive presets = [Preset(id="tabata", name="Tabata", work=20, rest=10, rounds=8), Preset(id="sprint", name="Sprints", work=30, rest=30, rounds=10), Preset(id="endurance", name="Endurance", work=45, rest=15, rounds=6)]
   state preset = "tabata" persist
   state name = "Tabata" persist
-  state work = 20 persist
-  state rest = 10 persist
-  state rounds = 8 persist
   state workText = "20" persist
   state restText = "10" persist
   state roundsText = "8" persist
+  derive work = seconds(workText, 20, 1, 600)
+  derive rest = seconds(restText, 10, 0, 600)
+  derive rounds = seconds(roundsText, 8, 1, 99)
 
   // "idle", "running", "paused" or "done".
   state status = "idle" persist
@@ -157,9 +157,6 @@ component App
   action choose(id: string, label: string, w: number, r: number, n: number)
     preset = id
     name = label
-    work = w
-    rest = r
-    rounds = n
     workText = `${w}`
     restText = `${r}`
     roundsText = `${n}`
@@ -169,21 +166,18 @@ component App
 
   action editWork(v: string)
     workText = v
-    work = seconds(v, work, 1, 600)
     preset = "custom"
     name = "Custom"
     status = "idle"
     banked = 0
   action editRest(v: string)
     restText = v
-    rest = seconds(v, rest, 0, 600)
     preset = "custom"
     name = "Custom"
     status = "idle"
     banked = 0
   action editRounds(v: string)
     roundsText = v
-    rounds = seconds(v, rounds, 1, 99)
     preset = "custom"
     name = "Custom"
     status = "idle"
