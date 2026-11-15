@@ -18,7 +18,7 @@ Timers are the classic thing UI tests can't test well: you either wait in real t
 test "a whole Tabata finishes and is logged to history"
   clock data
   tap "start"
-  clock +230000          // 3 minutes 50 seconds of workout, instantly
+  clock +235000          // 5 seconds to get ready + 3:50 of workout, instantly
   clock data
   expect text "phase" == "DONE"
   expect text "history-summary" == "1 workout · 3:50 total"
@@ -29,9 +29,10 @@ test "a whole Tabata finishes and is logged to history"
 
 - **One typed Contract app** ([app.contract](app.contract)): state, derived values, the ticking task, actions and the view in ~220 lines. The countdown is derived from a start mark and `performanceNow()`, never by counting ticks, so it can't drift and a virtual-clock jump lands exactly.
 - **A tiny TypeScript data source** ([app.ts](app.ts)): finished workouts are appended to a JSON file through Exact's sandboxed storage grant; the view never sees I/O, only typed `History` and `Reply` shapes generated from the contract.
-- **Platform-native by default**: colours, fonts, control metrics and the safe area are left unsaid, so each host supplies its own; dark mode, the responsive two-column layout and accessibility (`role="timer"` with a spoken label) come with it. A phase change plays a haptic where the platform has one.
+- **First-workout friendly**: each preset has a short explanation. Start and Again include a five-second Get ready countdown, excluded from workout history. Pause keeps the current phase and Resume continues it without another lead-in.
+- **Platform-native by default**: colours, fonts, control metrics and the safe area are left unsaid, so each host supplies its own; dark mode, the responsive two-column layout and accessibility (`role="timer"` with a spoken label) come with it. Phase changes and completion play a short declared WAV through Exact's `playSound` API and a haptic where supported. Web audio unlocks after the first tap or key; Linux and Windows record sound commands without playing them.
 - **`bun exact.mjs verify` is clean**: beyond the tests, it checks every test's end screen at phone and desktop sizes in light and dark for contrast, overflow at the largest text size and state that should survive a reload, then random-walks the contract's actions. Its findings (low-contrast tinted buttons, unwrapped rows at huge text, custom settings lost on reload) shaped the final app.
-- **Agent-driven tests** ([app.test.contract](app.test.contract)): seven tests tap, type and read the screen by `testId` the way an agent does, covering countdown, work→rest transitions, pause/resume, a full logged workout across a reload, custom workouts, blank-field validation and reset.
+- **Agent-driven tests** ([app.test.contract](app.test.contract)): eleven tests tap, type and read the screen by `testId` the way an agent does, covering the lead-in (including pause/resume and Again), work→rest transitions, phase-preserving pause/resume, a full logged workout across a reload, custom workouts, blank-field validation, maximum limits, positive whole-number validation and reset.
 
 ## Run it
 
