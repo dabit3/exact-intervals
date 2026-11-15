@@ -1,0 +1,22 @@
+{
+  "$schema": "../exact/scripts/app.schema.json",
+  "name": "Intervals",
+  "short_name": "Intervals",
+  "id": "com.dabit3.intervals",
+  "start_url": "/",
+  "display": "standalone",
+  "app": {
+    "id": "com.dabit3.intervals",
+    "name": "Intervals"
+  },
+  "host": {
+    "web": {},
+    "linux": {}
+  },
+  "deploy": {
+    "store": {
+      "web": "0",
+      "linux": "0"
+    }
+  }
+}
