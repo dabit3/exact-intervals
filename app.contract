@@ -1,6 +1,6 @@
 // Intervals: an interval-workout timer. Work and rest alternate for a number of rounds; the
 // ring shows the current phase, and a finished workout is logged to a file by app.ts.
-// The countdown is computed from a start mark and `performanceNow()`, never by counting
+// The countdown is computed from a persisted date, never by counting
 // ticks, so a test's `clock +240000` runs a whole Tabata deterministically in milliseconds.
 use RowText from "exact:content"
 sound "assets/cue.wav"
@@ -11,6 +11,9 @@ routes nav
 shape Time
   epochAtZero: number
   utcOffset: number
+
+shape Page
+  frozen: bool
 
 shape Session
   id: string
@@ -45,8 +48,9 @@ fn plural(n: number, word: string): string = `${n} ${word}${n == 1 ? "" : "s"}`
 
 component App
   resource time = exactTime() as shape Time
+  resource page = exactPage() as shape Page
   resource history = loadHistory() as shape History else empty()
-  mutation logged as shape Reply queue refreshes history
+  mutation logged as shape Reply queue refreshes history then afterLog
 
   derive presets = [Preset(id="tabata", name="Tabata", work=20, rest=10, rounds=8), Preset(id="sprint", name="Sprints", work=30, rest=30, rounds=10), Preset(id="endurance", name="Endurance", work=45, rest=15, rounds=6)]
   state preset = "tabata" persist
@@ -59,17 +63,19 @@ component App
   state roundsText = "8" persist
 
   // "idle", "running", "paused" or "done".
-  state status = "idle"
-  state startedAt = 0
-  state banked = 0
+  state status = "idle" persist
+  state startedAt = 0 persist
+  state banked = 0 persist
+  state sessionId = "" persist
+  state completionPending = false persist
   state now = 0
   state segment = -1
 
   derive cycle = (work + rest) * 1000
   derive total = rounds * cycle - rest * 1000
-  derive runningTime = banked + (status == "running" ? max(0, now - startedAt) : 0)
+  derive runningTime = banked + (status == "running" ? max(0, time.epochAtZero + now - startedAt) : 0)
   derive gettingReady = status != "idle" and status != "done" and runningTime < 5000
-  derive elapsed = min(total, max(0, runningTime - 5000))
+  derive elapsed = status == "done" ? total : min(total, max(0, runningTime - 5000))
   derive index = floor(elapsed / cycle)
   derive within = elapsed - index * cycle
   derive inWork = within < work * 1000
@@ -88,31 +94,40 @@ component App
   derive editable = status == "idle" or status == "done"
   derive shown = time.epochAtZero + now
 
-  task tick when status == "running"
+  task tick when status == "running" and current(time) and not page.frozen
     every(100, step)
+
+  task restore when current(time)
+    after(1, step)
+
+  action afterLog
+    if match logged { case some(reply) => reply.ok, case none => false }
+      completionPending = false
 
   // A phase change is felt (a haptic on iPhone); the workout's end logs it once.
   action step
-    let t = performanceNow()
+    let t = time.epochAtZero + performanceNow()
     let duration = banked + t - startedAt
     let e = max(0, duration - 5000)
     let n = floor(e / cycle)
     let seg = duration < 5000 ? -1 : n * 2 + (e - n * cycle < work * 1000 ? 0 : 1)
-    now = t
-    if e >= total
+    now = performanceNow()
+    if status == "running" and e >= total
       status = "done"
-      banked = total + 5000
+      completionPending = true
       haptic("success")
       playSound("assets/cue.wav")
-      send logged = logSession(name, rounds, work, rest, total / 1000, time.epochAtZero + t)
-    else if seg != segment
+      send logged = logSession(sessionId, name, rounds, work, rest, total / 1000, startedAt + total + 5000 - banked)
+    else if status == "done" and completionPending
+      send logged = logSession(sessionId, name, rounds, work, rest, total / 1000, startedAt + total + 5000 - banked)
+    else if status == "running" and seg != segment
       segment = seg
       haptic("impact-heavy")
       playSound("assets/cue.wav")
 
   action toggle
-    let t = performanceNow()
-    now = t
+    let t = time.epochAtZero + performanceNow()
+    now = performanceNow()
     if status == "running"
       banked = banked + t - startedAt
       status = "paused"
@@ -120,17 +135,23 @@ component App
       banked = 0
       segment = -1
       startedAt = t
+      sessionId = `${t}`
       status = "running"
     else if ready
       if status == "idle"
         segment = -1
       startedAt = t
+      if status == "idle"
+        sessionId = `${t}`
       status = "running"
 
   action reset
     status = "idle"
     banked = 0
     segment = -1
+    startedAt = 0
+    sessionId = ""
+    completionPending = false
 
   action choose(id: string, label: string, w: number, r: number, n: number)
     preset = id

@@ -19,9 +19,9 @@ const sources: Sources = {
       sessions: all.slice(-10).reverse(),
     };
   },
-  logSession: async ([name, rounds, work, rest, seconds, at], _store, storage): Promise<Result<'logSession'>> => {
+  logSession: async ([id, name, rounds, work, rest, seconds, at], _store, storage): Promise<Result<'logSession'>> => {
     const all = await load(storage);
-    const id = String(Math.max(0, ...all.map((s) => Number(s.id))) + 1);
+    if (all.some((s) => s.id === id)) return { ok: true, error: '' };
     const next = [...all, { id, name, rounds, work, rest, seconds, at }];
     await storage.fs.atomicWriteFile(FILE, new TextEncoder().encode(JSON.stringify(next)));
     return { ok: true, error: '' };

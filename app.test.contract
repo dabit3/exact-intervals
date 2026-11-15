@@ -185,7 +185,7 @@ test "custom values must stay within each field's bounds"
   type "rounds" "1"
   expect enabled "start"
   tap "start"
-  clock +1000
+  clock +6000
   expect text "phase" == "DONE"
 
 test "reset returns to the start of the workout"
@@ -198,3 +198,68 @@ test "reset returns to the start of the workout"
   tap "reset"
   expect text "phase" == "READY"
   expect text "left" == "0:30"
+  reload
+  expect text "phase" == "READY"
+  expect text "left" == "0:30"
+  expect tree has "history-empty"
+
+test "reloading during work preserves the running workout"
+  clock data
+  tap "start"
+  clock +12000
+  reload
+  expect text "phase" == "WORK"
+  expect text "left" == "0:13"
+  expect text "round" == "Round 1 of 8"
+  clock +14000
+  expect text "phase" == "REST"
+  expect text "left" == "0:09"
+
+test "reloading during rest preserves the round and continues counting"
+  clock data
+  tap "start"
+  clock +30000
+  reload
+  expect text "phase" == "REST"
+  expect text "left" == "0:05"
+  expect text "round" == "Round 1 of 8"
+  clock +6000
+  expect text "phase" == "WORK"
+  expect text "round" == "Round 2 of 8"
+  expect text "left" == "0:19"
+
+test "reloading a paused workout preserves its banked time"
+  clock data
+  tap "start"
+  clock +12000
+  tap "start"
+  clock +60000
+  reload
+  expect text "phase" == "PAUSED · WORK"
+  expect text "start" == "Resume"
+  expect text "left" == "0:13"
+  clock +60000
+  expect text "left" == "0:13"
+  tap "start"
+  clock +3000
+  expect text "left" == "0:10"
+
+test "a workout finishing while suspended is logged once on relaunch"
+  clock data
+  tap "start"
+  clock +7000
+  prefer frozen true
+  clock +240000
+  expect state status == "running"
+  reload
+  clock +1
+  clock data
+  expect text "phase" == "DONE"
+  expect text "left" == "0:00"
+  expect text "round" == "Round 8 of 8"
+  expect text "history-summary" == "1 workout · 3:50 total"
+  reload
+  clock +1000
+  clock data
+  expect text "phase" == "DONE"
+  expect text "history-summary" == "1 workout · 3:50 total"
