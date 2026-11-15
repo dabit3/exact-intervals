@@ -356,6 +356,33 @@ test "persisted input text determines the executed workout"
   expect state history.sessions.0.rest == 0
   expect state history.sessions.0.rounds == 3
 
+test "a no-rest workout restores running and paused rounds and logs once"
+  clock data
+  type "work" "7"
+  type "rest" "0"
+  type "rounds" "3"
+  tap "start"
+  clock +12000
+  reload
+  expect text "phase" == "WORK"
+  expect text "round" == "Round 2 of 3"
+  expect text "left" == "0:07"
+  expect state rest == 0
+  expect state phaseLength == 7000
+  tap "start"
+  reload
+  expect text "phase" == "PAUSED · WORK"
+  clock +60000
+  expect text "left" == "0:07"
+  tap "start"
+  clock +14000
+  clock data
+  expect text "phase" == "DONE"
+  expect text "history-summary" == "1 workout · 0:21 total"
+  reload
+  clock data
+  expect text "history-summary" == "1 workout · 0:21 total"
+
 test "hour-long workouts format totals and history as hours"
   clock data
   type "work" "600"
