@@ -31,7 +31,7 @@ test "a whole Tabata finishes and is logged to history"
 - **A tiny TypeScript data source** ([app.ts](app.ts)): finished workouts are appended to a JSON file through Exact's sandboxed storage grant; the view never sees I/O, only typed `History` and `Reply` shapes generated from the contract.
 - **Platform-native by default**: colours, fonts, control metrics and the safe area are left unsaid, so each host supplies its own; dark mode, the responsive two-column layout and accessibility (`role="timer"` with a spoken label) come with it. A phase change plays a haptic where the platform has one.
 - **`bun exact.mjs verify` is clean**: beyond the tests, it checks every test's end screen at phone and desktop sizes in light and dark for contrast, overflow at the largest text size and state that should survive a reload, then random-walks the contract's actions. Its findings (low-contrast tinted buttons, unwrapped rows at huge text, custom settings lost on reload) shaped the final app.
-- **Agent-driven tests** ([app.test.contract](app.test.contract)): six tests tap, type and read the screen by `testId` the way an agent does, covering countdown, work→rest transitions, pause/resume, a full logged workout across a reload, custom workouts and reset.
+- **Agent-driven tests** ([app.test.contract](app.test.contract)): seven tests tap, type and read the screen by `testId` the way an agent does, covering countdown, work→rest transitions, pause/resume, a full logged workout across a reload, custom workouts, blank-field validation and reset.
 
 ## Run it
 
