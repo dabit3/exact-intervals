@@ -40,6 +40,13 @@ shape Preset
   rest: number
   rounds: number
 
+shape Understood
+  ok: bool
+  message: string
+  work: number
+  rest: number
+  rounds: number
+
 fn pad2(n: number): string = n < 10 ? `0${n}` : `${n}`
 fn mmss(ms: number): string = ceil(ms / 1000) >= 3600 ? `${floor(ceil(ms / 1000) / 3600)}:${pad2(floor(ceil(ms / 1000) / 60) % 60)}:${pad2(ceil(ms / 1000) % 60)}` : `${floor(ceil(ms / 1000) / 60)}:${pad2(ceil(ms / 1000) % 60)}`
 fn valid(s: string, low: number, high: number): bool = match parseNumber(s) { case some(n) => n >= low and n <= high and n == floor(n), case none => false }
@@ -58,6 +65,10 @@ component App
   state workText = "20" persist
   state restText = "10" persist
   state roundsText = "8" persist
+  state description = ""
+  resource parsed = understand(description) as shape Understood else empty()
+  derive canApply = current(parsed) and parsed.ok and editable
+  derive preview = current(parsed) ? parsed.ok ? `${plural(parsed.rounds, "round")} · ${parsed.work}s work · ${parsed.rest}s rest · ${mmss((parsed.rounds * (parsed.work + parsed.rest) - parsed.rest) * 1000)} total` : parsed.message : "Reading workout…"
   derive work = seconds(workText, 20, 1, 600)
   derive rest = seconds(restText, 10, 0, 600)
   derive rounds = seconds(roundsText, 8, 1, 99)
@@ -170,6 +181,13 @@ component App
     name = "Custom"
     status = "idle"
     banked = 0
+  action describe(v: string)
+    description = v
+  action applyDescription
+    if canApply
+      editWork(`${parsed.work}`)
+      editRest(`${parsed.rest}`)
+      editRounds(`${parsed.rounds}`)
   action editRest(v: string)
     restText = v
     preset = "custom"
@@ -228,6 +246,10 @@ component App
                   // The workout: a preset, or its three numbers set by hand.
                   column gap=4 padding="16px 20px" border-radius=16 background-color="-exact-secondary-background" testId="workouts"
                     text "Workout" role="heading" aria-level=2 font="-exact-headline" margin-bottom=4
+                    input type="text" value=description input=describe disabled=(not editable) testId="describe" aria-label="Describe your workout" placeholder="8 rounds of 40 on 20 off" width="100%" box-sizing="border-box" aria-describedby="understood"
+                    text preview id="understood" testId="understood" aria-live="polite" role="status" font="-exact-footnote" color="-exact-secondary-label"
+                    button press=applyDescription disabled=(not canApply) testId="apply"
+                      text "Set up timer"
                     for p in presets key=p.id
                       button press=choose(p.id, p.name, p.work, p.rest, p.rounds) disabled=(not editable) testId=`preset-${p.id}`
                         display="flex" align-items="center" gap=12 padding="8px 0"

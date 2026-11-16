@@ -2,6 +2,89 @@
 // agent-owned virtual clock, so a four-minute Tabata runs in milliseconds, identically on
 // every host.
 
+test "plain words preview applies only on request and runs the timer"
+  size 1100x1000
+  clock data
+  expect disabled "apply"
+  expect text "understood" == "Try \"8 rounds of 40 on 20 off\""
+  type "describe" "8 rounds of 40 on 20 off"
+  clock data
+  expect text "understood" == "8 rounds · 40s work · 20s rest · 7:40 total"
+  expect text "left" == "0:20"
+  screenshot "/home/ubuntu/plain-words-shots/preview.png"
+  tap "apply"
+  expect state workText == "40"
+  expect state restText == "20"
+  expect state roundsText == "8"
+  expect text "workout-name" == "Custom"
+  expect text "remaining" == "7:40 total"
+  screenshot "/home/ubuntu/plain-words-shots/applied.png"
+  tap "start"
+  clock +12000
+  expect text "phase" == "WORK"
+  expect text "left" == "0:33"
+  expect text "round" == "Round 1 of 8"
+  expect disabled "describe"
+  expect disabled "apply"
+  screenshot "/home/ubuntu/plain-words-shots/running.png"
+
+test "plain words understand minutes and hard easy pairing"
+  type "describe" "10 x 1 min hard, 30s easy"
+  clock data
+  expect text "understood" == "10 rounds · 60s work · 30s rest · 14:30 total"
+  tap "apply"
+  expect text "remaining" == "14:30 total"
+
+test "plain words understand number words and work rest pairing"
+  type "describe" "eight rounds 45 work 15 rest"
+  clock data
+  expect text "understood" == "8 rounds · 45s work · 15s rest · 7:45 total"
+
+test "plain words understand tabata and overrides"
+  type "describe" "tabata"
+  clock data
+  expect text "understood" == "8 rounds · 20s work · 10s rest · 3:50 total"
+  type "describe" "TABATA 10 rounds"
+  clock data
+  expect text "understood" == "10 rounds · 20s work · 10s rest · 4:50 total"
+
+test "plain words understand colon durations and trailing rounds"
+  type "describe" "1:30 on 30 off x 6"
+  clock data
+  expect text "understood" == "6 rounds · 90s work · 30s rest · 11:30 total"
+
+test "plain words reject unsupported workouts and clear old previews"
+  type "describe" "tabata"
+  clock data
+  expect enabled "apply"
+  type "describe" "a pyramid of sprints"
+  clock data
+  expect text "understood" == "Didn't catch that — try \"10 x 1 min hard, 30s easy\""
+  expect disabled "apply"
+  expect text "workout-name" == "Tabata"
+  type "describe" ""
+  clock data
+  expect text "understood" == "Try \"8 rounds of 40 on 20 off\""
+  expect disabled "apply"
+
+test "plain words report out of range values"
+  type "describe" "8 rounds 601 work 20 rest"
+  clock data
+  expect text "understood" == "Work must be a whole number from 1 to 600 seconds."
+  expect disabled "apply"
+  type "describe" "100 x 40 on 20 off"
+  clock data
+  expect text "understood" == "Rounds must be a whole number from 1 to 99 rounds."
+  expect disabled "apply"
+
+test "plain words understand no rest and target duration"
+  type "describe" "5 x 2 min"
+  clock data
+  expect text "understood" == "5 rounds · 120s work · 0s rest · 10:00 total"
+  type "describe" "40 on 20 off for 8 minutes"
+  clock data
+  expect text "understood" == "8 rounds · 40s work · 20s rest · 7:40 total"
+
 test "a fresh app is a Tabata, ready to start"
   clock data
   expect text "workout-name" == "Tabata"
