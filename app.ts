@@ -1,4 +1,5 @@
 import type { Answer, Result, Sources, Storage } from './app.contract.d.ts';
+import { parseWorkout } from './workout';
 
 const FILE = 'app:/data/history.json';
 export const grants = `fs.read ${FILE}\nfs.write ${FILE}`;
@@ -11,6 +12,7 @@ const load = (storage: Storage): Promise<Session[]> => storage.fs.readFile(FILE)
 
 // The module has no clock: the view passes the instant a workout ended.
 const sources: Sources = {
+  understand: async ([text]) => parseWorkout(text),
   loadHistory: async (_args, _store, storage) => {
     const all = await load(storage);
     return {
