@@ -68,5 +68,8 @@ export function parseWorkout(input: string): Workout {
       return fail(`${name} must be a whole number from ${low} to ${high} ${unit}.`);
     }
   }
+  if (roundMentions && total !== undefined && Math.abs(rounds * (work + rest) - rest - total) > 0.000001) {
+    return fail('Rounds and total duration conflict — adjust the rounds or the time target.');
+  }
   return { ok: true, message: '', work, rest, rounds };
 }

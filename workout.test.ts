@@ -24,6 +24,22 @@ test('supported round markers, duration units and pairings', () => {
   expect(parseWorkout('40 on 20 off for 7.6666666667 minutes')).toMatchObject({ ok: true, rounds: 8 });
 });
 
+test('explicit rounds must match a duration target without trailing rest', () => {
+  for (const phrase of [
+    '8 rounds 40 on 20 off for 4 minutes',
+    '3 rounds 40 on 30 off for 3.5 minutes',
+    '5 x 2 min no rest for 9 minutes',
+  ]) expect(parseWorkout(phrase)).toMatchObject({
+    ok: false, message: 'Rounds and total duration conflict — adjust the rounds or the time target.',
+  });
+  for (const phrase of [
+    '3 rounds 40 on 30 off for 3 minutes',
+    '5 x 2 min no rest for 10 minutes',
+    '2 rounds 40 on 20 off for 1.6666666666667 minutes',
+  ]) expect(parseWorkout(phrase).ok).toBe(true);
+  expect(parseWorkout('40 on 20 off for 4 minutes')).toMatchObject({ ok: true, rounds: 4 });
+});
+
 test('empty, unsupported, ambiguous and out of bounds descriptions', () => {
   for (const phrase of ['', 'go hard', '40 on 20 off', '8 rounds 40 on 20 off 10 sprint',
     '3 sets of 8 rounds 40 on 20 off', '8 rounds 40 on 20 off then rest', 'EMOM 8 x 40',

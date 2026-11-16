@@ -78,6 +78,14 @@ test "plain words report out of range values"
   expect disabled "apply"
 
 test "plain words understand no rest and target duration"
+  type "describe" "8 rounds 40 on 20 off for 4 minutes"
+  clock data
+  expect text "understood" == "Rounds and total duration conflict — adjust the rounds or the time target."
+  expect disabled "apply"
+  type "describe" "3 rounds 40 on 30 off for 3 minutes"
+  clock data
+  expect text "understood" == "3 rounds · 40s work · 30s rest · 3:00 total"
+  expect enabled "apply"
   type "describe" "5 x 2 min"
   clock data
   expect text "understood" == "5 rounds · 120s work · 0s rest · 10:00 total"
