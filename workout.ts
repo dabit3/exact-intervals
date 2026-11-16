@@ -42,14 +42,14 @@ export function parseWorkout(input: string): Workout {
   text = text.replace(/\b(?:no rest|no break|straight)\b/g, '').replace(/\bof\b/g, '').trim();
   text = text.replace(/[,;!()—–]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/[.!?]+$/, '').trim();
   if (text) {
-    const pair = text.match(new RegExp(`^(${duration})\\s*${workLabel}?\\s*(?:with|/)?\\s*(${duration})\\s*${restLabel}?$`));
-    const prefixed = text.match(new RegExp(`^${workLabel}\\s*(${duration})\\s*${restLabel}\\s*(${duration})$`));
+    const workPart = `(?:${workLabel}\\s*(${duration})|(${duration})(?:\\s*${workLabel})?)`;
+    const restPart = `(?:${restLabel}\\s*(${duration})|(${duration})(?:\\s*${restLabel})?)`;
+    const pair = text.match(new RegExp(`^${workPart}\\s*(?:with|/)?\\s*${restPart}$`));
     const single = text.match(new RegExp(`^(?:${workLabel}\\s*)?(${duration})(?:\\s*${workLabel})?$`));
     const restOnly = tabata && text.match(new RegExp(`^(?:${restLabel}\\s*(${duration})|(${duration})\\s*${restLabel})$`));
-    if (pair || prefixed) {
-      const values = pair || prefixed!;
-      work = seconds(values[1]);
-      rest = seconds(values[2]);
+    if (pair) {
+      work = seconds(pair[1] || pair[2]);
+      rest = seconds(pair[3] || pair[4]);
       if (noRest && rest !== 0) return fail();
     } else if (single) {
       work = seconds(single[1]);

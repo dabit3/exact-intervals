@@ -39,6 +39,15 @@ test "plain words understand number words and work rest pairing"
   type "describe" "eight rounds 45 work 15 rest"
   clock data
   expect text "understood" == "8 rounds · 45s work · 15s rest · 7:45 total"
+  type "describe" "8 rounds work 40, 20 rest"
+  clock data
+  expect text "understood" == "8 rounds · 40s work · 20s rest · 7:40 total"
+  tap "apply"
+  expect state workText == "40"
+  expect state restText == "20"
+  type "describe" "8 rounds 45 work rest 15"
+  clock data
+  expect text "understood" == "8 rounds · 45s work · 15s rest · 7:45 total"
 
 test "plain words understand tabata and overrides"
   type "describe" "tabata"

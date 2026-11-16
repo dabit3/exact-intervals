@@ -24,6 +24,22 @@ test('supported round markers, duration units and pairings', () => {
   expect(parseWorkout('40 on 20 off for 7.6666666667 minutes')).toMatchObject({ ok: true, rounds: 8 });
 });
 
+test('work and rest labels can independently precede or follow durations', () => {
+  for (const work of ['work 40', '40 work', '40']) {
+    for (const rest of ['rest 20', '20 rest', '20']) {
+      for (const separator of [', ', ' / ', ' with ']) {
+        expect(parseWorkout(`8 rounds ${work}${separator}${rest}`)).toMatchObject({
+          ok: true, rounds: 8, work: 40, rest: 20,
+        });
+      }
+    }
+  }
+  expect(parseWorkout('8 rounds 40 hard easy 20')).toMatchObject({ ok: true, work: 40, rest: 20 });
+  expect(parseWorkout('8 rounds sprint 40 20 recovery')).toMatchObject({ ok: true, work: 40, rest: 20 });
+  for (const phrase of ['8 rounds rest 40 work 20', '8 rounds work work 40 rest 20',
+    '8 rounds work 40 rest 20 work 10']) expect(parseWorkout(phrase).ok).toBe(false);
+});
+
 test('explicit rounds must match a duration target without trailing rest', () => {
   for (const phrase of [
     '8 rounds 40 on 20 off for 4 minutes',
